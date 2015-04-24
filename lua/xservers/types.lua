@@ -106,12 +106,11 @@ xservers.Types = {
 		end,
 		Decode = function(data, pos)
 			local num, b = 0
-			pos, b = string_unpack(data, "b", pos)
 
 			repeat
+				pos, b = string_unpack(data, "b", pos)
 				assert(b ~= nil, "not enough data to decode varint")
 				num = bor(blshift(num, 7), band(b, 0x7F))
-				pos, b = string_unpack(data, "b", pos)
 			until band(b, 0x80) == 0
 
 			return pos, num
