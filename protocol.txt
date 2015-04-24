@@ -1,0 +1,44 @@
+xservers protocol (common)
+{
+	uint8[4] = {'X', 'S', 'E', 'R', 'V', 'E', 'R', 'S', 'Z'}
+	-- Z being the protocol revision in a uint8
+	-- protocol revisions should be backward compatible unless otherwise told
+	uint8 type -- player(s) joined/added, left/removed, position update, etc
+	uint16 size -- packet size (mostly for TCP/reliable channel)
+	
+	xservers protocol revision dependant data
+	xservers packet -- content depends on 'type'
+}
+
+xservers protocol (rev01)
+{
+	xservers packet (player(s) joined/added)
+	{
+		uint8 count -- number of players on this packet
+		uint8 reset -- boolean telling us to reset the current list
+		player -- repeated 'count' times
+		{
+			string name -- nul terminated
+			uint64 steamid64
+		}
+	}
+
+	xservers packet (player(s) update)
+	{
+		-- player is only updated if there is something to update
+		-- e.g. flags is not 0
+		player (repeated x times)
+		{
+			uint64 steamid64 -- identifies the player
+			uint8 flags -- if name, health, pos or angle are on this player's update, in bit 1, 2, etc, respectively
+			string name -- (optional, nul terminated) player name updated
+			uint8 health -- (optional) 0 represents death or negative health, 255 represents health above 254
+			int16 x -- (optional) player's x component of position vector (rounded float)
+			int16 y -- (optional) player's y component of position vector (rounded float)
+			int16 z -- (optional) player's z component of position vector (rounded float)
+			int8 p -- (optional) player's p component of view angle (-180/180 skewed into -127/127 range)
+			int8 yw -- (optional) player's y component of view angle (-180/180 skewed into -127/127 range)
+			int8 r -- (optional) player's r component of view angle (-180/180 skewed into -127/127 range)
+		}
+	}
+}
