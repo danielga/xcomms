@@ -219,7 +219,7 @@ function xservers.Send(packet)
 		for i = 1, xservers.AddressesCount do
 			local addr = xservers.Addresses[i]
 			if addr ~= nil and addr ~= xservers.Address then
-				xservers.Unreliable:sendto(data, addr, xservers.Port)
+				xservers.Unreliable:sendto(data, addr, xservers.UnreliablePort)
 			end
 		end
 	end
