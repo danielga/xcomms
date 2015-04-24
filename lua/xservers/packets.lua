@@ -75,11 +75,11 @@ function xservers.RegisterPacket(ptype, tab)
 		return pos, value
 	end
 
-	local function UnpackComplexMember(self, member, data, pos)
+	local function UnpackComplexMember(self, members, data, pos)
 		local values = {}
 		local value
-		for i = 1, #member do
-			local member = member[i]
+		for i = 1, #members do
+			local member = members[i]
 			pos, value = UnpackMember(self, member, values, data, pos)
 			values[member.Name] = value
 		end
@@ -98,7 +98,7 @@ function xservers.RegisterPacket(ptype, tab)
 			if member.Members == nil then
 				pos, value = UnpackMember(self, member, self.Data, data, pos)
 			else
-				pos, value = UnpackComplexMember(self, member, data, pos)
+				pos, value = UnpackComplexMember(self, member.Members, data, pos)
 			end
 
 			values[i] = value
