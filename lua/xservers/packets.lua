@@ -42,14 +42,13 @@ function xservers.RegisterPacket(ptype, tab)
 		assert(memberdata ~= nil or member.Condition ~= nil, string_format("incomplete data to generate packet of type %d (member '%s')", self.Type, member.Name))
 
 		if member.Condition == nil or member.Condition(self, data) then
-			table_insert(results, member.Encode(memberdata))
+			table_insert(results, member.Type.Encode(memberdata))
 		end
 	end
 
-	local function PackComplexMember(self, member, data, results)
-		local members = member.Members
+	local function PackComplexMember(self, members, data, results)
 		for i = 1, #members do
-			PackMember(self, member[i], data, results)
+			PackMember(self, members[i], data, results)
 		end
 	end
 
@@ -61,7 +60,7 @@ function xservers.RegisterPacket(ptype, tab)
 			if member.Members == nil then
 				PackMember(self, member, data[i], results)
 			else
-				PackComplexMember(self, member, data[i], results)
+				PackComplexMember(self, member.Members, data[i], results)
 			end
 		end
 	end
@@ -69,7 +68,7 @@ function xservers.RegisterPacket(ptype, tab)
 	local function UnpackMember(self, member, availdata, data, pos)
 		local value
 		if member.Condition == nil or member.Condition(self, availdata) then
-			pos, value = member.Decode(data, pos)
+			pos, value = member.Type.Decode(data, pos)
 			assert(value ~= nil, string_format("not enough data to fully unpack packet of type %d", self.Type))
 		end
 
@@ -108,6 +107,14 @@ function xservers.RegisterPacket(ptype, tab)
 		return pos, values
 	end
 
+	local function GetMember(members, key)
+		for i = 1, #members do
+			if members[i].Name == key then
+				return members[i]
+			end
+		end
+	end
+
 	xservers.PacketTypes[ptype] = {
 		Type = ptype,
 		MinSize = min,
@@ -115,18 +122,20 @@ function xservers.RegisterPacket(ptype, tab)
 		Members = tab,
 		Get = function(self, key, default)
 			assert(type(key) == "string", "key provided is not a string")
-			assert(self.Members[key] ~= nil, string_format("packet does not have member '%s'", key))
+			local member = GetMember(self.Members, key)
+			assert(member ~= nil, string_format("packet does not have member '%s'", key))
 
 			local value = self.Data[key]
 			return value ~= nil and value or default
 		end,
 		Set = function(self, key, value)
 			assert(type(key) == "string", "key provided is not a string")
-			assert(self.Members[key] ~= nil, string_format("packet does not have member '%s'", key))
-			if self.Members[key].Repeated then
+			local member = GetMember(self.Members, key)
+			assert(member ~= nil, string_format("packet does not have member '%s'", key))
+			if member.Repeated then
 				assert(type(value) == "table", "value type is not a table (repeated member)")
 			else
-				assert(type(value) == self.Members[key].LuaType, "value type is not the same as the member's type")
+				assert(type(value) == member.LuaType, "value type is not the same as the member's type")
 			end
 
 			self.Dirty = self.Data[key] ~= value
@@ -134,21 +143,9 @@ function xservers.RegisterPacket(ptype, tab)
 		end,
 		Add = function(self, key, value)
 			assert(type(key) == "string", "key provided is not a string")
-			assert(self.Members[key] ~= nil, string_format("packet does not have member '%s'", key))
-			assert(type(value) == self.Members[key].LuaType, "value type is not the same as the member's type")
-
-			self.Dirty = true
-			if self.Data[key] == nil then
-				self.Data[key] = {value}
-				return 1
-			end
-
-			return table_insert(self.Data[key], value)
-		end,
-		Add = function(self, key, value)
-			assert(type(key) == "string", "key provided is not a string")
-			assert(self.Members[key] ~= nil, string_format("packet does not have member '%s'", key))
-			assert(type(value) == self.Members[key].LuaType, "value type is not the same as the member's type")
+			local member = GetMember(self.Members, key)
+			assert(member ~= nil, string_format("packet does not have member '%s'", key))
+			assert(type(value) == member.LuaType, "value type is not the same as the member's type")
 
 			self.Dirty = true
 			if self.Data[key] == nil then

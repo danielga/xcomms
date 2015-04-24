@@ -18,57 +18,57 @@ xservers.RegisterPacket(PACKET_PLAYERSYNC, {
 			{
 				Name = "name",
 				Type = xservers.Types.string,
-				Condition = function(packet) -- this member is optional and should be used if Condition
-					return band(packet:Get("flags", 0), 0x01) ~= 0
+				Condition = function(packet, data) -- this member is optional and should be used if Condition
+					return band(data.flags, 0x01) ~= 0
 				end
 			},
 			{
 				Name = "health",
 				Type = xservers.Types.int8,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x02) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x02) ~= 0
 				end
 			},
 			{
 				Name = "x",
 				Type = xservers.Types.int16,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x04) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x04) ~= 0
 				end
 			},
 			{
 				Name = "y",
 				Type = xservers.Types.int16,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x04) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x04) ~= 0
 				end
 			},
 			{
 				Name = "z",
 				Type = xservers.Types.int16,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x04) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x04) ~= 0
 				end
 			},
 			{
 				Name = "p",
 				Type = xservers.Types.int8,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x08) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x08) ~= 0
 				end
 			},
 			{
 				Name = "yw",
 				Type = xservers.Types.int8,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x08) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x08) ~= 0
 				end
 			},
 			{
 				Name = "r",
 				Type = xservers.Types.int8,
-				Condition = function(packet)
-					return band(packet:Get("flags", 0), 0x08) ~= 0
+				Condition = function(packet, data)
+					return band(data.flags, 0x08) ~= 0
 				end
 			}
 		}
