@@ -206,8 +206,8 @@ function xservers.CreatePacket(ptype)
 end
 
 function xservers.Send(packet)
-	local pdata = packet:Pack()
-	local data = string_format("XSERVERS%s%s", string_pack(">bbH", xservers.CurrentProtocol, packet.Type, #pdata), pdata)
+	local data = packet:Pack()
+	data = "XSERVERS" .. string_pack(">bbH", xservers.CurrentProtocol, packet.Type, #data) .. data
 	if packet.Reliable then
 		for i = 1, #xservers.Connections do
 			local sock = xservers.Connections[i]
