@@ -278,20 +278,3 @@ function xservers.Receive()
 
 	return Process(data, false)
 end
-
-function xservers.IncludePacket(name)
-	assert(type(name) == "string", "packet filename is not a string")
-
-	local filepath = string_format("xservers/packets/%s.lua", name)
-	if file.Exists(filepath, "LUA") then
-		include(filepath)
-	end
-end
-
-function xservers.IncludePackets()
-	local files = file.Find("xservers/packets/*.lua", "LUA")
-	for i = 1, #files do
-		include(string_format("xservers/packets/%s", files[i]))
-	end
-end
-hook.Add("Initialize", "xservers packet types loader", xservers.IncludePackets)
