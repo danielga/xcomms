@@ -1,5 +1,5 @@
 require("serverid")
-require("luasocket")
+require("enet")
 require("pack")
 
 xservers = xservers or {
@@ -12,12 +12,9 @@ xservers = xservers or {
 		nil, -- #4
 		"94.23.170.2" -- #5
 	},
-	ReliablePort = 50000,
-	UnreliablePort = 50001,
-	MaxBacklog = 5,
-	AcceptInterval = 1,
-	LastAccept = 0,
-	Connections = {}
+	Port = 50000,
+	MaxPeers = 5,
+	Peers = {}
 }
 
 do
@@ -30,92 +27,62 @@ include("packets.lua")
 local xservers = xservers
 local assert, print, CurTime = assert, print, CurTime
 local table_KeyFromValue = table.KeyFromValue
-local string_format = string.format
+local string_format, string_match = string.format, string.match
 
 xservers.Address = xservers.Addresses[SERVERID]
 assert(xservers.Address ~= nil, string_format("invalid or unknown server ID %d", SERVERID))
 
-if xservers.Reliable == nil then
-	local sock, err = socket.tcp()
-	assert(sock ~= nil, err)
-
-	sock:settimeout(0)
-	local ret, err = sock:bind(xservers.Address, xservers.ReliablePort)
-	assert(ret ~= nil, err)
-
-	local ret, err = sock:listen(xservers.MaxBacklog)
-	assert(ret ~= nil, err)
-
-	xservers.Reliable = sock
+if xservers.Host == nil then
+	xservers.Host = enet.host_create(string_format("%s:%d", xservers.Address, xservers.Port), xservers.MaxPeers)
+	assert(xservers.Host ~= nil, "failed to create lua-enet host")
 end
 
-if xservers.Unreliable == nil then
-	local sock, err = socket.udp()
-	assert(sock ~= nil, err)
-
-	sock:settimeout(0)
-	local ret, err = sock:setsockname(xservers.Address, xservers.UnreliablePort)
-	assert(ret ~= nil, err)
-
-	xservers.Unreliable = sock
-end
-
-function xservers.AcceptConnection()
-	local sock = xservers.Reliable:accept()
-	if sock == nil then
-		return nil
-	end
-
-	local ip, port = sock:getpeername()
-	if ip == nil then
-		sock:close()
-		return nil
-	end
-
-	local serverid = table_KeyFromValue(xservers.Addresses, ip) 
-	if serverid == nil then
-		sock:close()
-		return false, ip
-	end
-
-	xservers.Connections[serverid] = sock
-	return true, serverid
+function xservers.Connect(serverid)
+	local addr = xservers.Addresses[serverid]
+	assert(addr ~= nil, string_format("invalid or unknown server ID %d", serverid))
+	assert(xservers.Host:connect(string_format("%s:%d", addr, xservers.Port)) ~= nil, "failed to create lua-enet peer")
 end
 
 function xservers.Shutdown()
-	xservers.Reliable:close()
-	xservers.Reliable = nil
-
-	xservers.Unreliable:close()
-	xservers.Unreliable = nil
-
 	for i = 1, xservers.AddressesCount do
-		if xservers.Connections[i] ~= nil then
-			xservers.Connections[i]:close()
+		if xservers.Peers[i] ~= nil then
+			xservers.Peers[i]:disconnect_now()
 		end
 	end
-	xservers.Connections = {}
+
+	xservers.Peers = {}
+
+	xservers.Host:destroy()
+	xservers.Host = nil
 end
 
 hook.Add("Think", "xservers logic hook", function()
-	if CurTime() >= xservers.LastAccept + xservers.AcceptInterval then
-		xservers.LastAccept = CurTime()
+	for i = 1, 10 do
+		local event = xservers.Host:service()
+		if event == nil or event.peer == nil then
+			return
+		end
 
-		local status, id = xservers.AcceptConnection()
-		while status ~= nil do
-			if status then
-				print(string_format("[xservers] Server #%d connected to us.", id))
-			else
-				print(string_format("[xservers] Unknown client address %s tried to connect.", id))
+		local peer = event.peer
+		local serverid = table.KeyFromValue(xservers.Peers, peer)
+		if event.type == "connect" then
+			if serverid == nil then
+				serverid = table.KeyFromValue(xservers.Addresses, string_match(tostring(peer), "^([^:]+)"))
 			end
 
-			status, id = xservers.AcceptConnection()
-		end
-	end
-
-	for i = 1, 10 do
-		if not xservers.Receive() then
-			break
+			if serverid == nil then
+				peer:disconnect_now()
+			else
+				xservers.Peers[serverid] = peer
+			end
+		elseif event.type == "disconnect" then
+			if serverid ~= nil then
+				xservers.Peers[serverid] = nil
+			end
+		elseif event.type == "receive" then
+			if serverid ~= nil then
+				xservers.Receive(serverid, event.data)
+			end
 		end
 	end
 end)

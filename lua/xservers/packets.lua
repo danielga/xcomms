@@ -208,26 +208,17 @@ end
 function xservers.Send(packet)
 	local data = packet:Pack()
 	data = "XSERVERS" .. string_pack(">bbH", xservers.CurrentProtocol, packet.Type, #data) .. data
-	if packet.Reliable then
-		for i = 1, #xservers.Connections do
-			local sock = xservers.Connections[i]
-			if sock ~= nil then
-				sock:send(data)
-			end
-		end
-	else
-		for i = 1, xservers.AddressesCount do
-			local addr = xservers.Addresses[i]
-			if addr ~= nil and addr ~= xservers.Address then
-				xservers.Unreliable:sendto(data, addr, xservers.UnreliablePort)
-			end
+
+	for i = 1, #xservers.AddressesCount do
+		local peer = xservers.Peers[i]
+		if peer ~= nil then
+			peer:send(data, 1, packet.Reliable and "reliable" or "unsequenced")
+			-- no sense relying on ordered unreliable packets since THEY'RE UNRELIABLE
 		end
 	end
-
-	return true
 end
 
-local function Process(data, reliable)
+function xservers.Receive(source, data)
 	if string_find(data, "^XSERVERS") == nil or #data < 12 then
 		return false -- not an xservers packet
 	end
@@ -245,36 +236,8 @@ local function Process(data, reliable)
 	end
 
 	packet:Unpack(data, 13)
-	if packet.Reliable ~= reliable then
-		packet.Reliable = reliable
-	end
 
 	hook_Call("XServersIncomingPacket", nil, packet)
 
 	return true
-end
-
-function xservers.Receive()
-	for i = 1, xservers.AddressesCount do
-		if xservers.Connections[i] ~= nil then
-			local data, err, partial = xservers.Connections[i]:receive(65535)
-			if data == nil then
-				if err == "closed" then
-					xservers.Connections[i]:close()
-					xservers.Connections[i] = nil
-				end
-
-				continue
-			end
-
-			return Process(data, true)
-		end
-	end
-
-	local data, extra1, extra2 = xservers.Unreliable:receivefrom(65535)
-	if data == nil then
-		return false
-	end
-
-	return Process(data, false)
 end
