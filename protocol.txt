@@ -1,16 +1,15 @@
 xservers protocol (common)
 {
-	uint8[4] = {'X', 'S', 'E', 'R', 'V', 'E', 'R', 'S', 'Z'}
+	uint8[9] = {'X', 'S', 'E', 'R', 'V', 'E', 'R', 'S', 'Z'}
 	-- Z being the protocol revision in a uint8
 	-- protocol revisions should be backward compatible unless otherwise told
 	uint8 type -- player(s) joined/added, left/removed, position update, etc
-	uint16 size -- packet size (mostly for TCP/reliable channel)
 	
 	xservers protocol revision dependant data
 	xservers packet -- content depends on 'type'
 }
 
-xservers protocol (rev01)
+xservers protocol example (rev01)
 {
 	xservers packet (player(s) joined/added)
 	{

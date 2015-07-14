@@ -207,13 +207,12 @@ end
 
 function xservers.Send(packet)
 	local data = packet:Pack()
-	data = "XSERVERS" .. string_pack(">bbH", xservers.CurrentProtocol, packet.Type, #data) .. data
+	data = "XSERVERS" .. string_pack(">bb", xservers.CurrentProtocol, packet.Type) .. data
 
 	for i = 1, #xservers.AddressesCount do
 		local peer = xservers.Peers[i]
 		if peer ~= nil then
 			peer:send(data, 1, packet.Reliable and "reliable" or "unsequenced")
-			-- no sense relying on ordered unreliable packets since THEY'RE UNRELIABLE
 		end
 	end
 end
@@ -223,7 +222,7 @@ function xservers.Receive(source, data)
 		return false -- not an xservers packet
 	end
 
-	local _, proto, ptype, psize = string_unpack(data, ">bbH", 9)
+	local _, proto, ptype = string_unpack(data, ">bb", 9)
 	if proto ~= xservers.CurrentProtocol then
 		return false	-- protocol differs, don't bother with it
 						-- we don't need multiple protocols at the
@@ -235,7 +234,7 @@ function xservers.Receive(source, data)
 		return false -- unrecognized packet type
 	end
 
-	packet:Unpack(data, 13)
+	packet:Unpack(data, 11)
 
 	hook_Call("XServersIncomingPacket", nil, packet)
 

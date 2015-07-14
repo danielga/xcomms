@@ -1,50 +1,53 @@
-require("serverid")
 require("enet")
 require("pack")
 
 xservers = xservers or {
 	CurrentProtocol = 1,
-	AddressesCount = 5,
-	Addresses = {
-		"195.154.232.234", -- #1
-		nil, -- #2
-		nil, -- #3
-		nil, -- #4
-		"94.23.170.2" -- #5
-	},
+	Addresses = {},
 	Port = 50000,
 	MaxPeers = 5,
 	Peers = {}
 }
-
-do
-	local _, bigendian = string.unpack(string.pack(">I", 1), "=I") == 1
-	xservers.BigEndian = bigendian
-end
-
-include("packets.lua")
 
 local xservers = xservers
 local assert, print, CurTime = assert, print, CurTime
 local table_KeyFromValue = table.KeyFromValue
 local string_format, string_match = string.format, string.match
 
-xservers.Address = xservers.Addresses[SERVERID]
-assert(xservers.Address ~= nil, string_format("invalid or unknown server ID %d", SERVERID))
+do
+	local _, bigendian = string.unpack(string.pack(">I", 1), "=I") == 1
+	xservers.BigEndian = bigendian
+
+	local addr = GetConVarNumber("hostip")
+	assert(addr ~= nil, "unable to retrieve this server address")
+	xservers.Address = string_format(
+		"%d.%d.%d.%d",
+		bit.band(bit.rshift(addr, 24), 0xFF),
+		bit.band(bit.rshift(addr, 16), 0xFF),
+		bit.band(bit.rshift(addr, 8), 0xFF),
+		bit.band(addr, 0xFF)
+	)
+end
 
 if xservers.Host == nil then
 	xservers.Host = enet.host_create(string_format("%s:%d", xservers.Address, xservers.Port), xservers.MaxPeers)
-	assert(xservers.Host ~= nil, "failed to create lua-enet host")
+	assert(xservers.Host ~= nil, "failed to create ENet host")
+end
+
+include("packets.lua")
+
+function xservers.AddServer(addr)
+	return table.insert(xservers.Addresses)
 end
 
 function xservers.Connect(serverid)
 	local addr = xservers.Addresses[serverid]
 	assert(addr ~= nil, string_format("invalid or unknown server ID %d", serverid))
-	assert(xservers.Host:connect(string_format("%s:%d", addr, xservers.Port)) ~= nil, "failed to create lua-enet peer")
+	assert(xservers.Host:connect(string_format("%s:%d", addr, xservers.Port)) ~= nil, "failed to create ENet peer")
 end
 
 function xservers.Shutdown()
-	for i = 1, xservers.AddressesCount do
+	for i = 1, #xservers.Peers do
 		if xservers.Peers[i] ~= nil then
 			xservers.Peers[i]:disconnect_now()
 		end
@@ -64,10 +67,10 @@ hook.Add("Think", "xservers logic hook", function()
 		end
 
 		local peer = event.peer
-		local serverid = table.KeyFromValue(xservers.Peers, peer)
+		local serverid = table_KeyFromValue(xservers.Peers, peer)
 		if event.type == "connect" then
 			if serverid == nil then
-				serverid = table.KeyFromValue(xservers.Addresses, string_match(tostring(peer), "^([^:]+)"))
+				serverid = table_KeyFromValue(xservers.Addresses, string_match(tostring(peer), "^([^:]+)"))
 			end
 
 			if serverid == nil then
