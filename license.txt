@@ -1,8 +1,7 @@
-xservers
-A Garry's Mod library for cross server communication and data
-synchronization.
+xcomms
+A library for cross platform communication and data synchronization.
 -----------------------------------------------------------------------
-Copyright (c) 2014, Daniel Almeida
+Copyright (c) 2015, Daniel Almeida
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

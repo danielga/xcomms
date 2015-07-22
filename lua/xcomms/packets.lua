@@ -1,12 +1,12 @@
 include("types.lua")
 
-local xservers = xservers
+local xcomms = xcomms
 local setmetatable, assert, type = setmetatable, assert, type
 local table_concat, table_insert, table_copy = table.concat, table.insert, table.Copy
 local string_pack, string_unpack, string_format, string_find = string.pack, string.unpack, string.format, string.find
 local hook_Call = hook.Call
 
-xservers.PacketTypes = {}
+xcomms.PacketTypes = {}
 
 local function EvaluateMembers(members)
 	local min, max = 0, 0
@@ -14,7 +14,7 @@ local function EvaluateMembers(members)
 		local member = members[i]
 
 		if member.Repeated then
-			min = min + xservers.Types.varint.MinSize
+			min = min + xcomms.Types.varint.MinSize
 			max = math.huge
 		elseif member.Members ~= nil then
 			local m, M = EvaluateMembers(member.Members)
@@ -32,7 +32,7 @@ local function EvaluateMembers(members)
 	return min, max
 end
 
-function xservers.RegisterPacket(ptype, tab)
+function xcomms.RegisterPacket(ptype, tab)
 	assert(ptype >= 0 and ptype <= 255, "type ID must be between 0 and 255")
 
 	local min, max = EvaluateMembers(tab)
@@ -54,7 +54,7 @@ function xservers.RegisterPacket(ptype, tab)
 
 	local function PackRepeatedMember(self, member, data, results)
 		local count = #data
-		table_insert(results, xservers.Types.varint.Encode(count))
+		table_insert(results, xcomms.Types.varint.Encode(count))
 
 		for i = 1, count do
 			if member.Members == nil then
@@ -89,7 +89,7 @@ function xservers.RegisterPacket(ptype, tab)
 
 	local function UnpackRepeatedMember(self, member, data, pos)
 		local count
-		pos, count = xservers.Types.varint.Decode(data, pos)
+		pos, count = xcomms.Types.varint.Decode(data, pos)
 		assert(count ~= nil, string_format("not enough data to fully unpack packet of type %d", self.Type))
 
 		local values = {}
@@ -115,7 +115,7 @@ function xservers.RegisterPacket(ptype, tab)
 		end
 	end
 
-	xservers.PacketTypes[ptype] = {
+	xcomms.PacketTypes[ptype] = {
 		Type = ptype,
 		MinSize = min,
 		MaxSize = max,
@@ -194,42 +194,42 @@ function xservers.RegisterPacket(ptype, tab)
 			end
 		end
 	}
-	xservers.PacketTypes[ptype].__index = xservers.PacketTypes[ptype]
+	xcomms.PacketTypes[ptype].__index = xcomms.PacketTypes[ptype]
 end
 
-function xservers.CreatePacket(ptype)
-	if xservers.PacketTypes[ptype] == nil then
+function xcomms.CreatePacket(ptype)
+	if xcomms.PacketTypes[ptype] == nil then
 		return
 	end
 
-	return setmetatable({Data = {}}, xservers.PacketTypes[ptype])
+	return setmetatable({Data = {}}, xcomms.PacketTypes[ptype])
 end
 
-function xservers.Send(packet)
+function xcomms.Send(packet)
 	local data = packet:Pack()
-	data = "XSERVERS" .. string_pack(">bb", xservers.CurrentProtocol, packet.Type) .. data
+	data = "XSERVERS" .. string_pack(">bb", xcomms.CurrentProtocol, packet.Type) .. data
 
-	for i = 1, #xservers.AddressesCount do
-		local peer = xservers.Peers[i]
+	for i = 1, #xcomms.AddressesCount do
+		local peer = xcomms.Peers[i]
 		if peer ~= nil then
 			peer:send(data, 1, packet.Reliable and "reliable" or "unsequenced")
 		end
 	end
 end
 
-function xservers.Receive(source, data)
+function xcomms.Receive(source, data)
 	if string_find(data, "^XSERVERS") == nil or #data < 12 then
-		return false -- not an xservers packet
+		return false -- not an xcomms packet
 	end
 
 	local _, proto, ptype = string_unpack(data, ">bb", 9)
-	if proto ~= xservers.CurrentProtocol then
+	if proto ~= xcomms.CurrentProtocol then
 		return false	-- protocol differs, don't bother with it
 						-- we don't need multiple protocols at the
 						-- same time in here
 	end
 
-	local packet = xservers.CreatePacket(ptype)
+	local packet = xcomms.CreatePacket(ptype)
 	if packet == nil then
 		return false -- unrecognized packet type
 	end

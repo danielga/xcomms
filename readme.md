@@ -1,10 +1,10 @@
-# xservers
+# xcomms
 
-A Garry's Mod library for cross server communication and data synchronization.
+A library for cross platform communication and data synchronization.
 
 ## Info
 
-Currently depends on a lot of Metastruct libraries and intricacies.
+Very much Work In Progress.
 
 ## Relevant URLs
 

@@ -1,17 +1,17 @@
-xservers protocol (common)
+xcomms protocol (common)
 {
-	uint8[9] = {'X', 'S', 'E', 'R', 'V', 'E', 'R', 'S', 'Z'}
+	uint8[7] = {'X', 'C', 'O', 'M', 'M', 'S', 'Z'}
 	-- Z being the protocol revision in a uint8
 	-- protocol revisions should be backward compatible unless otherwise told
 	uint8 type -- player(s) joined/added, left/removed, position update, etc
 	
-	xservers protocol revision dependant data
-	xservers packet -- content depends on 'type'
+	xcomms protocol revision dependant data
+	xcomms packet -- content depends on 'type'
 }
 
-xservers protocol example (rev01)
+xcomms protocol example (rev01)
 {
-	xservers packet (player(s) joined/added)
+	xcomms packet (player(s) joined/added)
 	{
 		uint8 count -- number of players on this packet
 		uint8 reset -- boolean telling us to reset the current list
@@ -22,7 +22,7 @@ xservers protocol example (rev01)
 		}
 	}
 
-	xservers packet (player(s) update)
+	xcomms packet (player(s) update)
 	{
 		-- player is only updated if there is something to update
 		-- e.g. flags is not 0

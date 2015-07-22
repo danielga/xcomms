@@ -1,7 +1,7 @@
 local string_pack, string_unpack, string_rep = string.pack, string.unpack, string.rep
 local blshift, brshift, band, bor = bit.lshift, bit.rshift, bit.band, bit.bor
 
-xservers.Types = {
+xcomms.Types = {
 	int8 = {
 		Type = "int8",
 		LuaType = "number",
