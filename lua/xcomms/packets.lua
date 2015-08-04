@@ -14,7 +14,7 @@ local function EvaluateMembers(members)
 		local member = members[i]
 
 		if member.Repeated then
-			min = min + xcomms.Types.varint.MinSize
+			min = min + xcomms.types.varint.MinSize
 			max = math.huge
 		elseif member.Members ~= nil then
 			local m, M = EvaluateMembers(member.Members)
@@ -54,7 +54,7 @@ function xcomms.RegisterPacket(ptype, tab)
 
 	local function PackRepeatedMember(self, member, data, results)
 		local count = #data
-		table_insert(results, xcomms.Types.varint.Encode(count))
+		table_insert(results, xcomms.types.varint.Encode(count))
 
 		for i = 1, count do
 			if member.Members == nil then
@@ -89,7 +89,7 @@ function xcomms.RegisterPacket(ptype, tab)
 
 	local function UnpackRepeatedMember(self, member, data, pos)
 		local count
-		pos, count = xcomms.Types.varint.Decode(data, pos)
+		pos, count = xcomms.types.varint.Decode(data, pos)
 		assert(count ~= nil, string_format("not enough data to fully unpack packet of type %d", self.Type))
 
 		local values = {}
