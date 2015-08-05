@@ -1,98 +1,128 @@
-local string_pack, string_unpack, string_rep = string.pack, string.unpack, string.rep
+local type = type
+local string_pack, string_unpack = string.pack, string.unpack
 local blshift, brshift, band, bor = bit.lshift, bit.rshift, bit.band, bit.bor
 
 xcomms.types = {
 	int8 = {
-		Type = "int8",
-		LuaType = "number",
+		type = "int8",
+		luatype = "number",
+		size = 1,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack("c", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, "c", pos)
-		end,
-		Size = 1
+		end
 	},
 	uint8 = {
-		Type = "uint8",
-		LuaType = "number",
+		type = "uint8",
+		luatype = "number",
+		size = 1,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack("b", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, "b", pos)
-		end,
-		Size = 1
+		end
 	},
 	int16 = {
-		Type = "int16",
-		LuaType = "number",
+		type = "int16",
+		luatype = "number",
+		size = 2,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">h", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">h", pos)
-		end,
-		Size = 2
+		end
 	},
 	uint16 = {
-		Type = "uint16",
-		LuaType = "number",
+		type = "uint16",
+		luatype = "number",
+		size = 2,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">H", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">H", pos)
-		end,
-		Size = 2
+		end
 	},
 	int32 = {
-		Type = "int32",
-		LuaType = "number",
+		type = "int32",
+		luatype = "number",
+		size = 4,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">i", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">i", pos)
-		end,
-		Size = 4
+		end
 	},
 	uint32 = {
-		Type = "uint32",
-		LuaType = "number",
+		type = "uint32",
+		luatype = "number",
+		size = 4,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">I", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">I", pos)
-		end,
-		Size = 4
+		end
 	},
 	int64 = {
-		Type = "int64",
-		LuaType = "number",
+		type = "int64",
+		luatype = "number",
+		size = 8,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">s", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">s", pos)
-		end,
-		Size = 8
+		end
 	},
 	uint64 = {
-		Type = "uint64",
-		LuaType = "number",
+		type = "uint64",
+		luatype = "number",
+		size = 8,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">S", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">S", pos)
-		end,
-		Size = 8
+		end
 	},
 	varint = {
-		Type = "varint",
-		LuaType = "number",
+		type = "varint",
+		luatype = "number",
+		minsize = 1,
+		maxsize = 5,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			local data = ""
 
@@ -114,66 +144,79 @@ xcomms.types = {
 			until band(b, 0x80) == 0
 
 			return pos, num
-		end,
-		MinSize = 1,
-		MaxSize = 5
+		end
 	},
 	float = {
-		Type = "float",
-		LuaType = "number",
+		type = "float",
+		luatype = "number",
+		size = 4,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">f", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">f", pos)
-		end,
-		Size = 4
+		end
 	},
 	double = {
-		Type = "double",
-		LuaType = "number",
+		type = "double",
+		luatype = "number",
+		size = 8,
+		Check = function(value)
+			return type(value) == "number"
+		end,
 		Encode = function(num)
 			return string_pack(">d", num)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, ">d", pos)
-		end,
-		Size = 8
+		end
 	},
 	boolean = {
-		Type = "boolean",
-		LuaType = "boolean",
+		type = "boolean",
+		luatype = "boolean",
+		size = 1,
+		Check = function(value)
+			return type(value) == "boolean"
+		end,
 		Encode = function(boolean)
 			return string_pack("b", boolean and 1 or 0)
 		end,
 		Decode = function(data, pos)
 			local newpos, num = string_unpack(data, "b", pos)
 			return newpos, num == 1
-		end,
-		Size = 1
+		end
 	},
 	string = {
-		Type = "string",
-		LuaType = "string",
+		type = "string",
+		luatype = "string",
+		minsize = 1,
+		maxsize = math.huge,
+		Check = function(value)
+			return type(value) == "string"
+		end,
 		Encode = function(str)
 			return string_pack("z", str)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, "z", pos)
-		end,
-		MinSize = 1,
-		MaxSize = math.huge
+		end
 	},
 	binary = {
-		Type = "binary",
-		LuaType = "string",
+		type = "binary",
+		luatype = "string",
+		minsize = 2,
+		maxsize = math.huge,
+		Check = function(value)
+			return type(value) == "string"
+		end,
 		Encode = function(bin)
 			return string_pack("P", bin)
 		end,
 		Decode = function(data, pos)
 			return string_unpack(data, "P", pos)
-		end,
-		MinSize = 2,
-		MaxSize = math.huge
+		end
 	}
 }

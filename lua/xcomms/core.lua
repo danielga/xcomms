@@ -2,85 +2,110 @@ require("enet")
 require("pack")
 
 xcomms = xcomms or {
-	CurrentProtocol = 1,
-	Addresses = {},
-	Port = 50000,
-	MaxPeers = 5,
-	Peers = {}
+	initialized = false,
+	protocol = 1,
+	whitelist = {},
+	address = "*",
+	port = 50000,
+	peers = {},
+	maxpeers = 5
 }
 
 local xcomms = xcomms
-local assert, print, CurTime = assert, print, CurTime
-local table_KeyFromValue = table.KeyFromValue
-local string_format, string_match = string.format, string.match
+local assert, type, tostring = assert, type, tostring
+local table_KeyFromValue, table_insert = table.KeyFromValue, table.insert
+local string_match = string.match
 
 do
 	local _, bigendian = string.unpack(string.pack(">I", 1), "=I") == 1
-	xcomms.BigEndian = bigendian
-
-	local addr = GetConVarNumber("hostip")
-	assert(addr ~= nil, "unable to retrieve this server address")
-	xcomms.Address = string_format(
-		"%d.%d.%d.%d",
-		bit.band(bit.rshift(addr, 24), 0xFF),
-		bit.band(bit.rshift(addr, 16), 0xFF),
-		bit.band(bit.rshift(addr, 8), 0xFF),
-		bit.band(addr, 0xFF)
-	)
-end
-
-if xcomms.Host == nil then
-	xcomms.Host = enet.host_create(string_format("%s:%d", xcomms.Address, xcomms.Port), xcomms.MaxPeers)
-	assert(xcomms.Host ~= nil, "failed to create ENet host")
+	xcomms.bigendian = bigendian
 end
 
 include("packets.lua")
 
+function xcomms.Initialize(addr, port, maxpeers)
+	xcomms.Shutdown()
+
+	if addr ~= nil then
+		assert(type(addr) == "string", "provided address value is not a string")
+		xcomms.address = addr
+	end
+
+	if port ~= nil then
+		assert(type(port) == "number", "provided port value is not a number")
+		xcomms.port = port
+	end
+
+	if maxpeers ~= nil then
+		assert(type(maxpeers) == "number", "provided max peers value is not a number")
+		xcomms.maxpeers = maxpeers
+	end
+
+	xcomms.host = enet.host_create(xcomms.address .. ":" .. xcomms.port, xcomms.maxpeers)
+	assert(xcomms.host ~= nil, "failed to create ENet host")
+
+	xcomms.initialized = true
+
+	return true
+end
+
 function xcomms.AddServer(addr)
-	return table.insert(xcomms.Addresses)
+	assert(type(addr) == "string", "provided address value is not a string")
+	local index = table_insert(xcomms.whitelist, addr)
+	xcomms.whitelist[addr] = index
+	return index
 end
 
 function xcomms.Connect(serverid)
-	local addr = xcomms.Addresses[serverid]
-	assert(addr ~= nil, string_format("invalid or unknown server ID %d", serverid))
-	assert(xcomms.Host:connect(string_format("%s:%d", addr, xcomms.Port)) ~= nil, "failed to create ENet peer")
+	assert(type(serverid) == "number", "provided server ID value is not a number")
+	local addr = xcomms.whitelist[serverid]
+	assert(addr ~= nil, "unknown server ID " .. serverid)
+	local peer = xcomms.host:connect(addr .. ":" .. xcomms.port)
+	assert(peer ~= nil, "failed to create ENet peer")
+	peer.serverid = serverid
+	xcomms.peers[serverid] = peer
 end
 
 function xcomms.Shutdown()
-	for i = 1, #xcomms.Peers do
-		if xcomms.Peers[i] ~= nil then
-			xcomms.Peers[i]:disconnect_now()
-		end
+	if not xcomms.initialized then
+		return false
 	end
 
-	xcomms.Peers = {}
+	xcomms.host:destroy()
+	xcomms.host = nil
 
-	xcomms.Host:destroy()
-	xcomms.Host = nil
+	xcomms.initialized = false
+
+	return true
 end
 
 hook.Add("Think", "xcomms logic hook", function()
+	if not xcomms.initialized then
+		return
+	end
+
 	for i = 1, 10 do
-		local event = xcomms.Host:service()
+		local event = xcomms.host:service()
 		if event == nil or event.peer == nil then
 			return
 		end
 
 		local peer = event.peer
-		local serverid = table_KeyFromValue(xcomms.Peers, peer)
+		local serverid = peer.serverid
 		if event.type == "connect" then
 			if serverid == nil then
-				serverid = table_KeyFromValue(xcomms.Addresses, string_match(tostring(peer), "^([^:]+)"))
+				serverid = xcomms.whitelist[string_match(tostring(peer), "^([^:]+)")]
 			end
 
 			if serverid == nil then
 				peer:disconnect_now()
 			else
-				xcomms.Peers[serverid] = peer
+				peer.serverid = serverid
+				xcomms.peers[serverid] = peer
 			end
 		elseif event.type == "disconnect" then
-			if serverid ~= nil then
-				xcomms.Peers[serverid] = nil
+			if peer.serverid ~= nil then
+				xcomms.peers[peer.serverid] = nil
 			end
 		elseif event.type == "receive" then
 			if serverid ~= nil then

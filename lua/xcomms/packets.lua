@@ -2,30 +2,30 @@ include("types.lua")
 
 local xcomms = xcomms
 local setmetatable, assert, type = setmetatable, assert, type
-local table_concat, table_insert, table_copy = table.concat, table.insert, table.Copy
-local string_pack, string_unpack, string_format, string_find = string.pack, string.unpack, string.format, string.find
+local table_concat, table_insert = table.concat, table.insert
+local string_pack, string_unpack, string_find = string.pack, string.unpack, string.find
 local hook_Call = hook.Call
 
-xcomms.PacketTypes = {}
+xcomms.packets = {}
 
 local function EvaluateMembers(members)
 	local min, max = 0, 0
 	for i = 1, #members do
 		local member = members[i]
 
-		if member.Repeated then
-			min = min + xcomms.types.varint.MinSize
+		if member.repeated then
+			min = min + xcomms.types.varint.minsize
 			max = math.huge
-		elseif member.Members ~= nil then
-			local m, M = EvaluateMembers(member.Members)
+		elseif member.members ~= nil then
+			local m, M = EvaluateMembers(member.members)
 			min = min + m
 			max = max + M
 		else
 			if member.Condition == nil then
-				min = min + (member.Type.Size or member.Type.MinSize)
+				min = min + (member.type.size or member.type.minsize)
 			end
 
-			max = max + (member.Type.Size or member.Type.MaxSize)
+			max = max + (member.type.size or member.type.maxsize)
 		end
 	end
 
@@ -38,11 +38,11 @@ function xcomms.RegisterPacket(ptype, tab)
 	local min, max = EvaluateMembers(tab)
 
 	local function PackMember(self, member, data, results)
-		local memberdata = data[member.Name]
-		assert(memberdata ~= nil or member.Condition ~= nil, string_format("incomplete data to generate packet of type %d (member '%s')", self.Type, member.Name))
+		local memberdata = data[member.name]
+		assert(memberdata ~= nil or member.Condition ~= nil, "incomplete data to generate packet of type " .. self.type .. " (member '" .. member.name .. "')")
 
 		if member.Condition == nil or member.Condition(self, data) then
-			table_insert(results, member.Type.Encode(memberdata))
+			table_insert(results, member.type.Encode(memberdata))
 		end
 	end
 
@@ -57,10 +57,10 @@ function xcomms.RegisterPacket(ptype, tab)
 		table_insert(results, xcomms.types.varint.Encode(count))
 
 		for i = 1, count do
-			if member.Members == nil then
+			if member.members == nil then
 				PackMember(self, member, data[i], results)
 			else
-				PackComplexMember(self, member.Members, data[i], results)
+				PackComplexMember(self, member.members, data[i], results)
 			end
 		end
 	end
@@ -68,8 +68,8 @@ function xcomms.RegisterPacket(ptype, tab)
 	local function UnpackMember(self, member, availdata, data, pos)
 		local value
 		if member.Condition == nil or member.Condition(self, availdata) then
-			pos, value = member.Type.Decode(data, pos)
-			assert(value ~= nil, string_format("not enough data to fully unpack packet of type %d", self.Type))
+			pos, value = member.type.Decode(data, pos)
+			assert(value ~= nil, "not enough data to fully unpack packet of type " .. self.type)
 		end
 
 		return pos, value
@@ -81,7 +81,7 @@ function xcomms.RegisterPacket(ptype, tab)
 		for i = 1, #members do
 			local member = members[i]
 			pos, value = UnpackMember(self, member, values, data, pos)
-			values[member.Name] = value
+			values[member.name] = value
 		end
 
 		return pos, values
@@ -90,15 +90,15 @@ function xcomms.RegisterPacket(ptype, tab)
 	local function UnpackRepeatedMember(self, member, data, pos)
 		local count
 		pos, count = xcomms.types.varint.Decode(data, pos)
-		assert(count ~= nil, string_format("not enough data to fully unpack packet of type %d", self.Type))
+		assert(count ~= nil, "not enough data to fully unpack packet of type " .. self.type)
 
 		local values = {}
 		local value
 		for i = 1, count do
-			if member.Members == nil then
-				pos, value = UnpackMember(self, member, self.Data, data, pos)
+			if member.members == nil then
+				pos, value = UnpackMember(self, member, self.data, data, pos)
 			else
-				pos, value = UnpackComplexMember(self, member.Members, data, pos)
+				pos, value = UnpackComplexMember(self, member.members, data, pos)
 			end
 
 			values[i] = value
@@ -109,110 +109,109 @@ function xcomms.RegisterPacket(ptype, tab)
 
 	local function GetMember(members, key)
 		for i = 1, #members do
-			if members[i].Name == key then
+			if members[i].name == key then
 				return members[i]
 			end
 		end
 	end
 
-	xcomms.PacketTypes[ptype] = {
-		Type = ptype,
-		MinSize = min,
-		MaxSize = max,
-		Members = tab,
+	xcomms.packets[ptype] = {
+		type = ptype,
+		minsize = min,
+		maxsize = max,
+		members = tab,
 		Get = function(self, key, default)
 			assert(type(key) == "string", "key provided is not a string")
-			local member = GetMember(self.Members, key)
-			assert(member ~= nil, string_format("packet does not have member '%s'", key))
+			local member = GetMember(self.members, key)
+			assert(member ~= nil, "packet does not have member '" .. key .. "'")
 
-			local value = self.Data[key]
+			local value = self.data[key]
 			return value ~= nil and value or default
 		end,
 		Set = function(self, key, value)
 			assert(type(key) == "string", "key provided is not a string")
-			local member = GetMember(self.Members, key)
-			assert(member ~= nil, string_format("packet does not have member '%s'", key))
-			if member.Repeated then
+			local member = GetMember(self.members, key)
+			assert(member ~= nil, "packet does not have member '" .. key .. "'")
+			if member.repeated then
 				assert(type(value) == "table", "value type is not a table (repeated member)")
 			else
-				assert(type(value) == member.LuaType, "value type is not the same as the member's type")
+				assert(member.Check(value), "value type is not the same as the member's type")
 			end
 
-			self.Dirty = self.Data[key] ~= value
-			self.Data[key] = value
+			self.dirty = self.data[key] ~= value
+			self.data[key] = value
 		end,
 		Add = function(self, key, value)
 			assert(type(key) == "string", "key provided is not a string")
-			local member = GetMember(self.Members, key)
-			assert(member ~= nil, string_format("packet does not have member '%s'", key))
-			assert(type(value) == member.LuaType, "value type is not the same as the member's type")
+			local member = GetMember(self.members, key)
+			assert(member ~= nil, "packet does not have member '" .. key .. "'")
+			assert(member.Check(value), "value type is not the same as the member's type")
 
-			self.Dirty = true
-			if self.Data[key] == nil then
-				self.Data[key] = {value}
-				return 1
+			self.dirty = true
+			if self.data[key] == nil then
+				self.data[key] = {}
 			end
 
-			return table_insert(self.Data[key], value)
+			return table_insert(self.data[key], value)
 		end,
 		Pack = function(self)
-			if not self.Dirty then
-				return self.Cache
+			if not self.dirty then
+				return self.cache
 			end
 
 			local data = {}
-			for i = 1, #self.Members do
-				local member = self.Members[i]
-				if member.Repeated then
-					PackRepeatedMember(self, member, self.Data[member.Name], data)
-				elseif members.Members ~= nil then
-					PackComplexMember(self, member, self.Data[member.Name], data)
+			for i = 1, #self.members do
+				local member = self.members[i]
+				if member.repeated then
+					PackRepeatedMember(self, member, self.data[member.name], data)
+				elseif members.members ~= nil then
+					PackComplexMember(self, member, self.data[member.name], data)
 				else
-					PackMember(self, member, self.Data[member.Name], data)
+					PackMember(self, member, self.data[member.name], data)
 				end
 			end
 
-			self.Cache = table_concat(data)
-			self.Dirty = false
-			return self.Cache
+			self.cache = table_concat(data)
+			self.dirty = false
+			return self.cache
 		end,
 		Unpack = function(self, data, pos)
 			pos = pos or 1
 
 			local value
-			for i = 1, #self.Members do
-				local member = self.Members[i]
-				if member.Repeated then
+			for i = 1, #self.members do
+				local member = self.members[i]
+				if member.repeated then
 					pos, value = UnpackRepeatedMember(self, member, data, pos)
-				elseif members.Members ~= nil then
+				elseif members.members ~= nil then
 					pos, value = UnpackComplexMember(self, member, data, pos)
 				else
 					pos, value = UnpackMember(self, member, self.Data, data, pos)
 				end
 
-				self.Data[member.Name] = value
+				self.data[member.Name] = value
 			end
 		end
 	}
-	xcomms.PacketTypes[ptype].__index = xcomms.PacketTypes[ptype]
+	xcomms.packets[ptype].__index = xcomms.packets[ptype]
 end
 
 function xcomms.CreatePacket(ptype)
-	if xcomms.PacketTypes[ptype] == nil then
+	if xcomms.packets[ptype] == nil then
 		return
 	end
 
-	return setmetatable({Data = {}}, xcomms.PacketTypes[ptype])
+	return setmetatable({data = {}}, xcomms.packets[ptype])
 end
 
 function xcomms.Send(packet)
 	local data = packet:Pack()
-	data = "XSERVERS" .. string_pack(">bb", xcomms.CurrentProtocol, packet.Type) .. data
+	data = "XSERVERS" .. string_pack(">bb", xcomms.protocol, packet.type) .. data
 
-	for i = 1, #xcomms.AddressesCount do
-		local peer = xcomms.Peers[i]
+	for i = 1, xcomms.maxpeers do
+		local peer = xcomms.peers[i]
 		if peer ~= nil then
-			peer:send(data, 1, packet.Reliable and "reliable" or "unsequenced")
+			peer:send(data, 1, packet.reliable and "reliable" or "unsequenced")
 		end
 	end
 end
@@ -223,7 +222,7 @@ function xcomms.Receive(source, data)
 	end
 
 	local _, proto, ptype = string_unpack(data, ">bb", 9)
-	if proto ~= xcomms.CurrentProtocol then
+	if proto ~= xcomms.protocol then
 		return false	-- protocol differs, don't bother with it
 						-- we don't need multiple protocols at the
 						-- same time in here
