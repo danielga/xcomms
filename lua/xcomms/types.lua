@@ -1,5 +1,7 @@
 local type = type
 local string_pack, string_unpack = string.pack, string.unpack
+
+local bit = bit or bit32 or error("no supported bit library")
 local blshift, brshift, band, bor = bit.lshift, bit.rshift, bit.band, bit.bor
 
 xcomms.types = {

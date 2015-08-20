@@ -4,7 +4,6 @@ local xcomms = xcomms
 local setmetatable, assert, type = setmetatable, assert, type
 local table_concat, table_insert = table.concat, table.insert
 local string_pack, string_unpack, string_find = string.pack, string.unpack, string.find
-local hook_Call = hook.Call
 
 xcomms.packets = {}
 
@@ -205,8 +204,7 @@ function xcomms.CreatePacket(ptype)
 end
 
 function xcomms.Send(packet)
-	local data = packet:Pack()
-	data = "XSERVERS" .. string_pack(">bb", xcomms.protocol, packet.type) .. data
+	local data = "XCOMMS" .. string_pack(">bb", xcomms.protocol, packet.type) .. packet:Pack()
 
 	for i = 1, xcomms.maxpeers do
 		local peer = xcomms.peers[i]
@@ -217,11 +215,11 @@ function xcomms.Send(packet)
 end
 
 function xcomms.Receive(source, data)
-	if string_find(data, "^XSERVERS") == nil or #data < 12 then
+	if string_find(data, "^XCOMMS") == nil or #data < 8 then
 		return false -- not an xcomms packet
 	end
 
-	local _, proto, ptype = string_unpack(data, ">bb", 9)
+	local _, proto, ptype = string_unpack(data, ">bb", 7)
 	if proto ~= xcomms.protocol then
 		return false	-- protocol differs, don't bother with it
 						-- we don't need multiple protocols at the
@@ -235,7 +233,6 @@ function xcomms.Receive(source, data)
 
 	packet:Unpack(data, 11)
 
-	hook_Call("XServersIncomingPacket", nil, packet)
-
+	xcomms.Call(packet)
 	return true
 end

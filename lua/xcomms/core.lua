@@ -8,12 +8,13 @@ xcomms = xcomms or {
 	address = "*",
 	port = 50000,
 	peers = {},
-	maxpeers = 5
+	maxpeers = 5,
+	callbacks = {}
 }
 
 local xcomms = xcomms
 local assert, type, tostring = assert, type, tostring
-local table_KeyFromValue, table_insert = table.KeyFromValue, table.insert
+local table_insert, table_remove = table.insert, table.remove
 local string_match = string.match
 
 do
@@ -45,7 +46,6 @@ function xcomms.Initialize(addr, port, maxpeers)
 	assert(xcomms.host ~= nil, "failed to create ENet host")
 
 	xcomms.initialized = true
-
 	return true
 end
 
@@ -64,6 +64,7 @@ function xcomms.Connect(serverid)
 	assert(peer ~= nil, "failed to create ENet peer")
 	peer.serverid = serverid
 	xcomms.peers[serverid] = peer
+	return peer
 end
 
 function xcomms.Shutdown()
@@ -75,19 +76,57 @@ function xcomms.Shutdown()
 	xcomms.host = nil
 
 	xcomms.initialized = false
-
 	return true
 end
 
-hook.Add("Think", "xcomms logic hook", function()
+function xcomms.RegisterCallback(ptype, callback)
+	assert(type(ptype) == "number", "provided packet type value is not a number")
+	assert(type(callback) == "function", "provided callback value is not a function")
+
+	local callbacks = xcomms.callbacks[ptype]
+	if callbacks == nil then
+		callbacks = {}
+		xcomms.callbacks[ptype] = callbacks
+	else
+		for i = 1, #callbacks do
+			if callbacks[i] == callback then
+				return false
+			end
+		end
+	end
+
+	table_insert(callbacks, callback)
+	return true
+end
+
+function xcomms.RemoveCallback(ptype, callback)
+	assert(type(ptype) == "number", "provided packet type value is not a number")
+	assert(type(callback) == "function", "provided callback value is not a function")
+
+	local callbacks = xcomms.callbacks[ptype]
+	if callbacks == nil then
+		return false
+	end
+
+	for i = 1, #callbacks do
+		if callbacks[i] == callback then
+			table_remove(callbacks, i)
+			return true
+		end
+	end
+
+	return false
+end
+
+function xcomms.Think()
 	if not xcomms.initialized then
-		return
+		return false
 	end
 
 	for i = 1, 10 do
 		local event = xcomms.host:service()
 		if event == nil or event.peer == nil then
-			return
+			break
 		end
 
 		local peer = event.peer
@@ -113,4 +152,33 @@ hook.Add("Think", "xcomms logic hook", function()
 			end
 		end
 	end
-end)
+
+	return true
+end
+
+local function Call(packet)
+	local callbacks = xcomms.callbacks[packet.type]
+	if callbacks == nil then
+		return false
+	end
+
+	for i = 1, #callbacks do
+		if callbacks[i](packet) == true then
+			break
+		end
+	end
+
+	return true
+end
+
+-- Garry's Mod support code
+if hook ~= nil and hook.Add ~= nil and hook.Call ~= nil then
+	hook.Add("Think", "xcomms logic hook", xcomms.Think)
+
+	local hook_Call = hook.Call
+	function xcomms.Call(packet)
+		return hook_Call("XCommsIncomingPacket", nil, packet) == true or Call(packet)
+	end
+else
+	xcomms.Call = Call
+end
