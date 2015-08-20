@@ -148,7 +148,10 @@ function xcomms.Think()
 			end
 		elseif event.type == "receive" then
 			if serverid ~= nil then
-				xcomms.Receive(serverid, event.data)
+				local packet, errstr = xcomms.Receive(serverid, event.data)
+				if packet ~= nil then
+					xcomms.Call(packet)
+				end
 			end
 		end
 	end

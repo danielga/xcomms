@@ -216,23 +216,22 @@ end
 
 function xcomms.Receive(source, data)
 	if string_find(data, "^XCOMMS") == nil or #data < 8 then
-		return false -- not an xcomms packet
+		return nil, "unknown packet"
 	end
 
 	local _, proto, ptype = string_unpack(data, ">bb", 7)
 	if proto ~= xcomms.protocol then
-		return false	-- protocol differs, don't bother with it
-						-- we don't need multiple protocols at the
-						-- same time in here
+		-- protocol differs, don't bother with it
+		-- we don't need multiple protocols at the
+		-- same time in here
+		return nil, "different protocol"
 	end
 
 	local packet = xcomms.CreatePacket(ptype)
 	if packet == nil then
-		return false -- unrecognized packet type
+		return nil, "unknown packet type"
 	end
 
 	packet:Unpack(data, 11)
-
-	xcomms.Call(packet)
-	return true
+	return packet
 end
