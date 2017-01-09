@@ -176,7 +176,9 @@ end
 
 -- Garry's Mod support code
 if hook ~= nil and hook.Add ~= nil and hook.Call ~= nil then
-	hook.Add("Think", "xcomms logic hook", xcomms.Think)
+	hook.Add("Think", "xcomms logic hook", function()
+		xcomms.Think() 
+	end)
 
 	local hook_Call = hook.Call
 	function xcomms.Call(packet)
